@@ -1,0 +1,117 @@
+/* ============================================================
+   M4 - CONSULTAS SQL DE NEGOCIO
+   Base de datos: Ventas_Tech_DB
+   Empresa: TechStore
+
+   Objetivo:
+   Obtener métricas y rankings de negocio utilizando
+   únicamente la tabla ventas.
+   ============================================================ */
+
+USE Ventas_Tech_DB;
+GO
+
+
+/* ============================================================
+   CONSULTA 1 - RESUMEN EJECUTIVO MENSUAL
+   ------------------------------------------------------------
+   Obtiene:
+   - Mes
+   - Total facturado
+   - Cantidad de pedidos
+   - Ticket promedio
+
+   El total facturado se calcula como:
+   cantidad * precio_unitario
+   ============================================================ */
+
+SELECT
+    MONTH(fecha_venta) AS mes,
+    SUM(cantidad * precio_unitario) AS total_facturado,
+    COUNT(*) AS cantidad_pedidos,
+    AVG(cantidad * precio_unitario) AS ticket_promedio
+FROM ventas
+GROUP BY MONTH(fecha_venta)
+ORDER BY mes;
+GO
+
+
+/* ============================================================
+   CONSULTA 2 - RANKING DE PRODUCTOS
+   ------------------------------------------------------------
+   Muestra los 5 productos con mayor facturación.
+   Se trabaja únicamente con id_producto porque todavía
+   no utilizamos JOIN con la tabla productos.
+   ============================================================ */
+
+SELECT TOP 5
+    id_producto,
+    SUM(cantidad) AS unidades_vendidas,
+    SUM(cantidad * precio_unitario) AS total_generado
+FROM ventas
+GROUP BY id_producto
+ORDER BY total_generado DESC;
+GO
+
+
+/* ============================================================
+   CONSULTA 3 - CLIENTES RECURRENTES
+   ------------------------------------------------------------
+   Identifica los clientes que realizaron más de un pedido.
+   Muestra:
+   - ID del cliente
+   - Cantidad de pedidos
+   - Total gastado
+   ============================================================ */
+
+SELECT
+    id_cliente,
+    COUNT(*) AS cantidad_pedidos,
+    SUM(cantidad * precio_unitario) AS total_gastado
+FROM ventas
+GROUP BY id_cliente
+HAVING COUNT(*) > 1
+ORDER BY cantidad_pedidos DESC;
+GO
+
+
+/* ============================================================
+   CONSULTA 4 - MESES POR ENCIMA / POR DEBAJO DEL PROMEDIO
+   ------------------------------------------------------------
+   Compara la facturación de cada mes con el promedio
+   de facturación mensual.
+   ============================================================ */
+
+WITH facturacion_mensual AS
+(
+    SELECT
+        MONTH(fecha_venta) AS mes,
+        SUM(cantidad * precio_unitario) AS total_facturado
+    FROM ventas
+    GROUP BY MONTH(fecha_venta)
+)
+
+SELECT
+    mes,
+    total_facturado,
+    CASE
+        WHEN total_facturado >=
+            (SELECT AVG(total_facturado)
+             FROM facturacion_mensual)
+        THEN 'Por encima'
+        ELSE 'Por debajo'
+    END AS comparacion_promedio
+FROM facturacion_mensual
+ORDER BY mes;
+GO
+
+
+/* ============================================================
+   BLOQUE DE CIERRE - HALLAZGOS
+   ============================================================ */
+
+-- 1. En marzo se registró una facturación total de $6.444, con 10 pedidos y un ticket promedio de $644,40.
+
+-- 2. Los 5 clientes registrados realizaron más de un pedido, con 2 pedidos cada uno.
+
+-- 3. El cliente 1 fue quien más gastó, con un total de $2.640, seguido por el cliente 5 con $2.100.
